@@ -42,6 +42,9 @@ export const metadata = {
     title: 'AdPage Builder – Create Landing Pages & Publish Online',
     description: 'Create, save and publish landing pages for ads, products and businesses.',
   },
+  verification: {
+    google: 'EPzjM6vhagb6qxae9dRAiSueTYKCJcv3XPg2F6nFt2E',
+  },
 };
 
 export default function RootLayout({ children }) {
