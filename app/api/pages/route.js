@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { savePage } from '@/lib/store';
+import { savePage } from '../../../lib/store';
 
 export async function POST(request) {
   try {
