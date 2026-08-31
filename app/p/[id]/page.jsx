@@ -1,26 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getPage } from '../../../lib/persistent-store';
-
-export const dynamic = 'force-dynamic';
-
-function normalizeImage(x){return typeof x==='string'?{src:x,width:100,height:260,url:''}:{src:x.src,width:x.width??100,height:x.height??260,url:x.url??''};}
-function ActionButton({ href, children }) { if (!href) return null; return <a className="cta" href={href} target="_blank" rel="noreferrer">{children}</a>; }
-
-export default async function PublishedPage({ params }) {
-  const data = await getPage(params.id);
-  if (!data) notFound();
-  const whatsapp=(data.wa||'').replace(/\D/g,'');
-  const whatsappUrl=whatsapp?`https://wa.me/${whatsapp}${data.waMessage?`?text=${encodeURIComponent(data.waMessage)}`:''}`:'';
-  return <main className="published-shell">
-    <div className="published-ad ad"><span>ADVERTISEMENT</span><small>Ad space</small></div>
-    <div className="published-images">{(data.imgs||[]).map((raw,i)=>{const im=normalizeImage(raw);const image=<img src={im.src} key={i} alt={data.title||'Landing page image'} style={{width:`${im.width}%`,height:`${im.height}px`}}/>;return im.url?<a href={im.url} target="_blank" rel="noreferrer" key={i}>{image}</a>:image;})}</div>
-    <article className="published-content">
-      <h1>{data.title||'Your Amazing Offer'}</h1>
-      {data.desc&&<p>{data.desc}</p>}
-      {data.buttonOn&&data.url&&<ActionButton href={data.url}>{data.btn||'Watch Now 🎬'}</ActionButton>}
-      {data.websiteOn&&data.url&&<ActionButton href={data.url}>Visit Website</ActionButton>}
-      {data.waOn&&whatsappUrl&&<ActionButton href={whatsappUrl}>WhatsApp</ActionButton>}
-    </article>
-    <div className="published-ad ad"><span>ADVERTISEMENT</span><small>Ad space</small></div>
-  </main>;
-}
+import OrderForm from './OrderForm';
+export const dynamic='force-dynamic';
+function Block({b,id}){if(b.type==='text')return <div className="published-text" style={{textAlign:b.align||'left'}}>{b.text}</div>;if(b.type==='image'){if(!b.src)return null;const im=<img src={b.src} alt="" style={{width:`${b.width||100}%`,height:`${b.height||360}px`}}/>;return b.url?<a href={b.url} target="_blank" rel="noreferrer" className="image-link">{im}</a>:im}if(b.type==='button')return <a className={`cta anim-${b.animation||'fade-up'}`} href={b.url||'#'} target="_blank" rel="noreferrer">{b.text||'Watch Now 🎬'}</a>;if(b.type==='whatsapp'){const n=(b.number||'').replace(/\D/g,'');return n?<a className="cta whatsapp" href={`https://wa.me/${n}${b.message?`?text=${encodeURIComponent(b.message)}`:''}`} target="_blank" rel="noreferrer">{b.text||'WhatsApp'}</a>:null}if(b.type==='order')return <OrderForm pageId={id} heading={b.heading} button={b.button}/>;return null}
+export default async function PublishedPage({params}){const data=await getPage(params.id);if(!data||data.published===false)notFound();const blocks=data.blocks?.length?data.blocks:[];return <main className="published-shell"><div className="published-ad ad"><span>ADVERTISEMENT</span><small>Ad space</small></div>{blocks.map(b=><Block key={b.id} b={b} id={params.id}/>)}{!blocks.length&&<div className="published-content"><h1>{data.title||'Your Amazing Offer'}</h1>{data.desc&&<p>{data.desc}</p>}{data.buttonOn&&data.url&&<a className="cta" href={data.url} target="_blank" rel="noreferrer">{data.btn||'Watch Now 🎬'}</a>}</div>}<div className="published-ad ad"><span>ADVERTISEMENT</span><small>Ad space</small></div></main>}
