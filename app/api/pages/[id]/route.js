@@ -1,6 +1,7 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
 import { getPage } from '../../../../lib/persistent-store';
+import { auth } from '@clerk/nextjs/server';
 
 export async function GET(request, { params }) {
   try {
