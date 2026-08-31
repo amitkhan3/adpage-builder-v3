@@ -1,0 +1,7 @@
+import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { Redis } from '@upstash/redis';
+const redis=new Redis({url:process.env.KV_REST_API_URL,token:process.env.KV_REST_API_TOKEN});
+const admin=()=>process.env.ADMIN_USER_ID;
+export async function GET(){const {userId}=await auth();if(!userId||userId!==admin())return NextResponse.json({error:'Admin only.'},{status:403});const keys=await redis.keys('adpayment:*');const payments=keys.length?await redis.mget(...keys):[];return NextResponse.json({payments:payments.filter(Boolean).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt))});}
+export async function PATCH(request){const {userId}=await auth();if(!userId||userId!==admin())return NextResponse.json({error:'Admin only.'},{status:403});const b=await request.json();if(!b.id||!['approved','rejected'].includes(b.status))return NextResponse.json({error:'Invalid request.'},{status:400});const p=await redis.get(`adpayment:${b.id}`);if(!p)return NextResponse.json({error:'Payment not found.'},{status:404});const updated={...p,status:b.status,reviewedAt:new Date().toISOString(),reviewedBy:userId};await redis.set(`adpayment:${b.id}`,updated);if(b.status==='approved'){await redis.set(`adsubscription:${p.userId}`,{userId:p.userId,status:'approved',plan:b.plan||'Pro',expiresAt:b.expiresAt||null,paymentId:p.id});}else await redis.del(`adsubscription:${p.userId}`);return NextResponse.json({payment:updated});}
