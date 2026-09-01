@@ -1,17 +1,27 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
+import {useUser} from '@clerk/nextjs';
+import {useRouter} from 'next/navigation';
 
 const money=n=>`৳${Number(n||0).toLocaleString()}`;
 const planName=p=>({monthly:'1 Month',quarterly:'3 Months','half-yearly':'6 Months'}[p]||p||'Subscription');
 
 export default function Admin(){
+ const {isLoaded,isSignedIn,user}=useUser();
+ const router=useRouter();
  const [items,setItems]=useState([]),[msg,setMsg]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState('');
+ useEffect(()=>{
+   if(!isLoaded)return;
+   if(!isSignedIn){router.replace('/sign-in');return;}
+   if(user?.id!=='user_3IkJ9yqORLSrkT6QDtrL7e53p5h'){router.replace('/');}
+ },[isLoaded,isSignedIn,user?.id,router]);
  const load=async()=>{setLoading(true);setMsg('');try{const r=await fetch('/api/admin/payments',{cache:'no-store'});const d=await r.json();if(r.ok)setItems(d.payments||[]);else setMsg(d.error||'Admin access required.');}catch(e){setMsg('Could not load payment requests.');}finally{setLoading(false);}};
- useEffect(()=>{load()},[]);
+ useEffect(()=>{if(isLoaded&&isSignedIn&&user?.id==='user_3IkJ9yqORLSrkT6QDtrL7e53p5h')load();},[isLoaded,isSignedIn,user?.id]);
  const review=async(item,status)=>{setBusy(item.userId);setMsg('');try{const r=await fetch('/api/admin/payments',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:item.userId,status})});const d=await r.json();if(!r.ok){setMsg(d.error||'Update failed.');return;}setItems(a=>a.map(x=>x.userId===item.userId?d.subscription:x));setMsg(status==='active'?'✅ Payment approved. Subscription is now active.':'❌ Payment rejected.');}catch(e){setMsg('Update failed. Please try again.');}finally{setBusy('');}};
  const pending=useMemo(()=>items.filter(x=>x.status==='pending').length,[items]);
  const active=useMemo(()=>items.filter(x=>x.status==='active').length,[items]);
  const total=useMemo(()=>items.filter(x=>x.status==='active').reduce((s,x)=>s+Number(x.amount||0),0),[items]);
+ if(!isLoaded||!isSignedIn||user?.id!=='user_3IkJ9yqORLSrkT6QDtrL7e53p5h') return <main className="admin-page"><div className="admin-empty">Checking admin access…</div></main>;
  return <main className="admin-page">
   <div className="admin-top"><div><a href="/" className="admin-back">← Builder</a><h1>Admin Panel</h1><p>Manage bKash/Nagad subscription payments.</p></div><button className="admin-refresh" onClick={load} disabled={loading}>↻ Refresh</button></div>
   <section className="admin-stats"><div><span>Pending</span><strong>{pending}</strong></div><div><span>Active</span><strong>{active}</strong></div><div><span>Approved value</span><strong>{money(total)}</strong></div><div><span>Total requests</span><strong>{items.length}</strong></div></section>
