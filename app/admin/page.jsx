@@ -1,3 +1,29 @@
 'use client';
-import {useEffect,useState} from 'react';
-export default function Admin(){const [items,setItems]=useState([]),[msg,setMsg]=useState('');const load=async()=>{const r=await fetch('/api/admin/payments',{cache:'no-store'});const d=await r.json();if(r.ok)setItems(d.payments||[]);else setMsg(d.error||'Admin access required.');};useEffect(()=>{load()},[]);const review=async(item,status)=>{setMsg('Updating…');const r=await fetch('/api/admin/payments',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:item.userId,status,expiresAt:item.expiresAt})});const d=await r.json();if(!r.ok)setMsg(d.error||'Update failed.');else{setItems(a=>a.map(x=>x.userId===item.userId?d.subscription:x));setMsg(status==='active'?'Payment approved.':'Payment rejected.');}};return <main style={{maxWidth:1000,margin:'40px auto',padding:20}}><h1>Admin • Payments</h1><p>Review manual bKash/Nagad subscription payments.</p>{msg&&<div style={{padding:12,margin:'12px 0',border:'1px solid #ddd'}}>{msg}</div>}{items.length?items.map(x=><div key={x.userId} style={{padding:18,margin:'12px 0',border:'1px solid #ddd',borderRadius:12}}><b>{x.plan||'Pro'}</b><div>User: {x.userId}</div><div>Method: {x.method} • Amount: ৳{x.amount}</div><div>Transaction ID: {x.transactionId}</div><div>Status: <strong>{x.status}</strong></div>{x.status==='pending'&&<div style={{display:'flex',gap:8,marginTop:12}}><button onClick={()=>review(x,'active')}>✅ Approve</button><button onClick={()=>review(x,'rejected')}>❌ Reject</button></div>}</div>):<p>No payment requests.</p>}</main>}
+import {useEffect,useMemo,useState} from 'react';
+
+const money=n=>`৳${Number(n||0).toLocaleString()}`;
+const planName=p=>({monthly:'1 Month',quarterly:'3 Months','half-yearly':'6 Months'}[p]||p||'Subscription');
+
+export default function Admin(){
+ const [items,setItems]=useState([]),[msg,setMsg]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState('');
+ const load=async()=>{setLoading(true);setMsg('');try{const r=await fetch('/api/admin/payments',{cache:'no-store'});const d=await r.json();if(r.ok)setItems(d.payments||[]);else setMsg(d.error||'Admin access required.');}catch(e){setMsg('Could not load payment requests.');}finally{setLoading(false);}};
+ useEffect(()=>{load()},[]);
+ const review=async(item,status)=>{setBusy(item.userId);setMsg('');try{const r=await fetch('/api/admin/payments',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:item.userId,status})});const d=await r.json();if(!r.ok){setMsg(d.error||'Update failed.');return;}setItems(a=>a.map(x=>x.userId===item.userId?d.subscription:x));setMsg(status==='active'?'✅ Payment approved. Subscription is now active.':'❌ Payment rejected.');}catch(e){setMsg('Update failed. Please try again.');}finally{setBusy('');}};
+ const pending=useMemo(()=>items.filter(x=>x.status==='pending').length,[items]);
+ const active=useMemo(()=>items.filter(x=>x.status==='active').length,[items]);
+ const total=useMemo(()=>items.filter(x=>x.status==='active').reduce((s,x)=>s+Number(x.amount||0),0),[items]);
+ return <main className="admin-page">
+  <div className="admin-top"><div><a href="/" className="admin-back">← Builder</a><h1>Admin Panel</h1><p>Manage bKash/Nagad subscription payments.</p></div><button className="admin-refresh" onClick={load} disabled={loading}>↻ Refresh</button></div>
+  <section className="admin-stats"><div><span>Pending</span><strong>{pending}</strong></div><div><span>Active</span><strong>{active}</strong></div><div><span>Approved value</span><strong>{money(total)}</strong></div><div><span>Total requests</span><strong>{items.length}</strong></div></section>
+  {msg&&<div className="admin-message">{msg}</div>}
+  {loading?<div className="admin-empty">Loading payment requests…</div>:items.length===0?<div className="admin-empty"><strong>No payment requests yet.</strong><span>When a customer submits a subscription payment, it will appear here.</span></div>:
+   <section className="admin-list">{items.map(x=><article className={`payment-card ${x.status}`} key={x.userId}>
+    <div className="payment-head"><div><span className="payment-plan">{planName(x.plan)}</span><span className={`status status-${x.status}`}>{x.status}</span></div><strong>{money(x.amount)}</strong></div>
+    <div className="payment-grid"><div><label>Customer ID</label><code>{x.userId}</code></div><div><label>Payment method</label><strong>{String(x.method||'').toUpperCase()}</strong></div><div><label>Transaction ID</label><code>{x.transactionId||'—'}</code></div><div><label>Submitted</label><span>{x.updatedAt?new Date(x.updatedAt).toLocaleString():'—'}</span></div></div>
+    {x.status==='active'&&x.expiresAt&&<div className="expiry">✅ Active until <strong>{new Date(x.expiresAt).toLocaleString()}</strong></div>}
+    {x.status==='rejected'&&<div className="rejected-note">Payment was rejected. The customer can submit a new payment.</div>}
+    {x.status==='pending'&&<div className="payment-actions"><button className="approve" disabled={busy===x.userId} onClick={()=>review(x,'active')}>{busy===x.userId?'Updating…':'✅ Approve Payment'}</button><button className="reject" disabled={busy===x.userId} onClick={()=>review(x,'rejected')}>❌ Reject</button></div>}
+   </article>)}</section>
+  }
+ </main>
+}
