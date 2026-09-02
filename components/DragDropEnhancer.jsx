@@ -9,19 +9,32 @@ export default function DragDropEnhancer() {
 
     const getBlocks = () => Array.from(document.querySelectorAll('.canvas .edit-block'));
 
+    const prepare = () => {
+      getBlocks().forEach((block) => {
+        block.setAttribute('draggable', 'true');
+        block.style.cursor = 'grab';
+      });
+    };
+
     const clear = () => {
-      getBlocks().forEach((el) => el.classList.remove('dragging-block', 'drag-over-top', 'drag-over-bottom'));
+      getBlocks().forEach((el) => {
+        el.classList.remove('dragging-block', 'drag-over-top', 'drag-over-bottom');
+        el.style.cursor = 'grab';
+      });
       dragged = null;
       over = null;
     };
 
     const onDragStart = (e) => {
-      const handle = e.target.closest('.drag-handle');
-      if (!handle) return;
-      const block = handle.closest('.edit-block');
+      const block = e.target.closest('.canvas .edit-block');
       if (!block) return;
+      if (e.target.closest('button, input, textarea, select, a, label')) {
+        e.preventDefault();
+        return;
+      }
       dragged = block;
       block.classList.add('dragging-block');
+      block.style.cursor = 'grabbing';
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', block.dataset.blockId || 'block');
     };
@@ -41,40 +54,36 @@ export default function DragDropEnhancer() {
     const onDrop = (e) => {
       if (!dragged || !over || dragged === over) return;
       e.preventDefault();
-
       const blocks = getBlocks();
       const from = blocks.indexOf(dragged);
       const target = blocks.indexOf(over);
       if (from < 0 || target < 0) return clear();
-
       const before = e.clientY < over.getBoundingClientRect().top + over.getBoundingClientRect().height / 2;
       let desired = before ? target : target + 1;
       if (from < desired) desired -= 1;
       const steps = desired - from;
       if (!steps) return clear();
-
-      const buttons = dragged.querySelectorAll('.block-head button');
-      const up = buttons[0];
-      const down = buttons[1];
-      const button = steps < 0 ? up : down;
-      if (!button) return clear();
-
-      for (let i = 0; i < Math.abs(steps); i += 1) button.click();
-      setTimeout(clear, 80);
+      const controls = dragged.querySelectorAll('.block-head button');
+      const moveButton = steps < 0 ? controls[0] : controls[1];
+      if (!moveButton) return clear();
+      for (let i = 0; i < Math.abs(steps); i += 1) moveButton.click();
+      setTimeout(clear, 120);
     };
 
-    const onDragEnd = clear;
-
+    prepare();
+    const observer = new MutationObserver(prepare);
+    observer.observe(document.body, { childList: true, subtree: true });
     document.addEventListener('dragstart', onDragStart);
     document.addEventListener('dragover', onDragOver);
     document.addEventListener('drop', onDrop);
-    document.addEventListener('dragend', onDragEnd);
+    document.addEventListener('dragend', clear);
 
     return () => {
+      observer.disconnect();
       document.removeEventListener('dragstart', onDragStart);
       document.removeEventListener('dragover', onDragOver);
       document.removeEventListener('drop', onDrop);
-      document.removeEventListener('dragend', onDragEnd);
+      document.querySelectorAll('.canvas .edit-block').forEach((el) => el.removeAttribute('draggable'));
     };
   }, []);
 
