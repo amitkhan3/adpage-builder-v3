@@ -11,7 +11,7 @@ export async function generateMetadata({ params }) {
   const title = data.title || 'Professional Landing Page';
   const description = data.desc || 'A professional landing page created with AdPage Builder.';
   const base = 'https://adpage-builder-v3-pied.vercel.app';
-  const image = `${base}/p/${params.id}/opengraph-image`;
+  const image = `${base}/adpage-og.svg`;
   const url = `${base}/p/${params.id}`;
 
   return {
