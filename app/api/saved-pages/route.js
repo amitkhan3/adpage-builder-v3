@@ -10,14 +10,17 @@ export async function GET() {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Sign in required.' }, { status: 401 });
+
     const pages = await listPages(userId);
     const active = await isActiveSubscription(userId);
+    const publishedPages = pages.filter(page => page.published === true);
+
     return NextResponse.json({
       pages,
       quota: {
         freeLimit: FREE_PAGE_LIMIT,
-        used: pages.length,
-        remaining: Math.max(0, FREE_PAGE_LIMIT - pages.length),
+        used: publishedPages.length,
+        remaining: Math.max(0, FREE_PAGE_LIMIT - publishedPages.length),
         unlimited: active,
       },
     });
