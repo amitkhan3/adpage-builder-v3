@@ -4,7 +4,7 @@ import { auth } from '@clerk/nextjs/server';
 import { listPages } from '../../../lib/persistent-store';
 import { isActiveSubscription } from '../../../lib/subscription-store';
 
-const FREE_PAGE_LIMIT = 3;
+const FREE_PUBLISH_LIMIT = 3;
 
 export async function GET() {
   try {
@@ -13,14 +13,17 @@ export async function GET() {
 
     const pages = await listPages(userId);
     const active = await isActiveSubscription(userId);
-    const publishedPages = pages.filter(page => page.published === true);
+    const publishUsed = pages.reduce((total, page) => {
+      if (typeof page.publishCount === 'number') return total + Math.max(0, page.publishCount);
+      return total + (page.published === true ? 1 : 0);
+    }, 0);
 
     return NextResponse.json({
       pages,
       quota: {
-        freeLimit: FREE_PAGE_LIMIT,
-        used: publishedPages.length,
-        remaining: Math.max(0, FREE_PAGE_LIMIT - publishedPages.length),
+        freeLimit: FREE_PUBLISH_LIMIT,
+        used: publishUsed,
+        remaining: Math.max(0, FREE_PUBLISH_LIMIT - publishUsed),
         unlimited: active,
       },
     });
